@@ -1,5 +1,9 @@
 ;;;; package.lisp
 
-(defpackage #:cl-messagepack
-  (:use #:cl))
+(defpackage #:messagepack
+  (:use #:cl)
+  (:nicknames #:mpk)
+  (:export encode encode-stream
+           decode decode-stream
+           write-hex))
 
