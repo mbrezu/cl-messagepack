@@ -41,10 +41,10 @@
        do (push (elt data i) line)
        when (= (length line) 16)
        do
-         (format t "~{~2,'0x ~}~%" (nreverse line))
+         (format t "~{#x~2,'0x ~}~%" (nreverse line))
          (setf line nil))
     (when line
-      (format t "~{~2,'0x ~}~%" (nreverse line)))))
+      (format t "~{#x~2,'0x ~}~%" (nreverse line)))))
 
 (defun encode (data)
   (flexi-streams:with-output-to-sequence (stream)
@@ -135,7 +135,7 @@
            (store-big-endian len stream 4)))))
 
 (defun encode-hash (data stream)
-  (encode-sequence-length data stream #x80 15 #xdc #xdd)
+  (encode-sequence-length data stream #x80 15 #xde #xdf)
   (encode-each data stream))
 
 (defun encode-array (data stream)

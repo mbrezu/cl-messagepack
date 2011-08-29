@@ -7,3 +7,8 @@
            decode decode-stream
            write-hex))
 
+(defpackage #:messagepack-tests
+  (:use #:cl #:fiveam)
+  (:nicknames #:mpk-tests))
+
+
