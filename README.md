@@ -13,6 +13,8 @@ Status: first draft encoder and decoder implemented.
 
 To do:
 
- * write tests;
- * write some benchmarks (compare speed against `cl-json`?)
+ * tests for encoding arrays etc should only test type-code and length
+   encoding;
+ * correct encoding of elements should be handled via decoding the
+   encoded sequences and comparing with the original.
 

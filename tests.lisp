@@ -32,7 +32,7 @@
 (test floating-point
   "Test encoding of single and double precision floating point
 numbers."
-  (is (equalp #(#xCA #x3F #x80 #x00 #x00) (mpk:encode 1.0s0)))
+  #+sbcl (is (equalp #(#xCA #x3F #x80 #x00 #x00) (mpk:encode 1.0s0)))
   (is (equalp #(#xCB #x3F #xF0 #x00 #x00 #x00 #x00 #x00 #x00) (mpk:encode 1.0d0))))
 
 (test strings
@@ -76,14 +76,11 @@ encode properly."
                   for i from 1 to size
                   do (setf (gethash i result) (- i)))
                result)))
-    (is (equalp #(#x8A #x01 #xFF #x02 #xFE #x03 #xFD #x04 #xFC #x05 #xFB #x06 #xFA #x07 #xF9 #x08
-                  #xF8 #x09 #xF7 #x0A #xF6)
-                (mpk:encode (make-map 10))))
-    (is (equalp #(#xDE #x00 #x10 #x01 #xFF #x02 #xFE #x03 #xFD #x04 #xFC #x05 #xFB #x06 #xFA #x07
-                  #xF9 #x08 #xF8 #x09 #xF7 #x0A #xF6 #x0B #xF5 #x0C #xF4 #x0D #xF3 #x0E #xF2 #x0F
-                  #xF1 #x10 #xF0)
-                (mpk:encode (make-map 16))))
-    (is (equalp #(#xDF #x00 #x01 #x00 #x00 #x01 #xFF #x02 #xFE #x03 #xFD #x04 #xFC #x05 #xFB #x06)
+    (is (equalp #(#x8A)
+                (subseq (mpk:encode (make-map 10)) 0 1)))
+    (is (equalp #(#xDE #x00 #x10)
+                (subseq  (mpk:encode (make-map 16)) 0 3)))
+    (is (equalp #(#xDF #x00 #x01 #x00 #x00)
                 (subseq (mpk:encode (make-map 65536))
-                        0 16)))))
+                        0 5)))))
 
