@@ -84,3 +84,111 @@ encode properly."
                 (subseq (mpk:encode (make-map 65536))
                         0 5)))))
 
+(test extension-cons
+  "Test that conses are encoded properly."
+  (let ((mpk:*use-extensions* t))
+    (is (equalp #(#xC4 #x01 #x02) (mpk:encode (cons 1 2))))))
+
+(test extension-symbol
+  "Test that symbols are encoded properly."
+  (let ((mpk:*use-extensions* t))
+    (is (equalp #(#xC5 #xA7 #x4B #x45 #x59 #x57 #x4F #x52 #x44 #xA1 #x41)
+                (mpk:encode :a)))
+    (mpk:with-symbol-int-table (mpk:get-symbol-int-table  '((:a 10)))
+      (is (equalp #(198 10)
+                  (mpk:encode :a))))))
+
+(test extension-rational
+  "Test that rationals are encoded properly."
+  (let ((mpk:*use-extensions* t))
+    (is (equalp #(#xC7 #x01 #x02) (mpk:encode (/ 1 2))))))
+
+(test decoding-integers
+  "Test that (equalp (decode (encode data)) data) for integers (that
+  can be encoded as Message Pack integers."
+  (is (eql 100 (mpk:decode (mpk:encode 100))))
+  (is (eql -30 (mpk:decode (mpk:encode -30))))
+  (is (eql 12345 (mpk:decode (mpk:encode 12345))))
+  (is (eql 2390493 (mpk:decode (mpk:encode 2390493))))
+  (is (eql 2390493000 (mpk:decode (mpk:encode 2390493000)))))
+
+(test decoding-bools
+  "Test that (equalp (decode (encode data)) data) for bools."
+  (is (eql t (mpk:decode (mpk:encode t))))
+  (is (eql nil (mpk:decode (mpk:encode nil)))))
+
+(test decoding-floats
+  "Test that (equalp (decode (encode data)) data) for floats."
+  #+ (or sbcl ccl) (is (eql 100d0 (mpk:decode (mpk:encode 100d0))))
+  #+ sbcl (is (eql 102s0 (mpk:decode (mpk:encode 102s0)))))
+
+(test decoding-strings
+  "Test that (equalp (decode (encode data)) data) holds for strings."
+  (let ((*print-pretty* nil))
+    (let ((short-string "test")
+          (medium-string (with-output-to-string (str)
+                           (loop repeat 10 do (princ "test" str))))
+          (long-string (with-output-to-string (str)
+                         (loop repeat (expt 10 5) do (princ "test" str)))))
+      (is (string= short-string (mpk:decode (mpk:encode short-string))))
+      (is (string= medium-string (mpk:decode (mpk:encode medium-string))))
+      (is (string= long-string (mpk:decode (mpk:encode long-string)))))))
+
+(test decoding-arrays
+  "Test that (equalp (decode (encode data)) data) holds for arrays."
+  (let ((short-array #(1 2 3))
+        (medium-array (make-array 1000 :initial-element 10))
+        (long-array (make-array 70000 :initial-element 10)))
+    (is (equalp short-array (mpk:decode (mpk:encode short-array))))
+    (is (equalp medium-array (mpk:decode (mpk:encode medium-array))))
+    (is (equalp long-array (mpk:decode (mpk:encode long-array))))))
+
+(test decoding-lists
+  "Test that (equalp (decode (encode data)) data) holds for lists,
+  with the proper options."
+  (labels ((mk-list (size)
+             (let (result)
+               (dotimes (i size)
+                 (push i result))
+               result)))
+    (let ((mpk:*decoder-prefers-lists* t))
+      (let ((short-list (mk-list 10))
+            (medium-list (mk-list 1000))
+            (long-list (mk-list 70000)))
+        (is (equalp short-list (mpk:decode (mpk:encode short-list))))
+        (is (equalp medium-list (mpk:decode (mpk:encode medium-list))))
+        (is (equalp long-list (mpk:decode (mpk:encode long-list))))))))
+
+(test decoding-maps
+  "Test that (equalp (decode (encode data)) data) holds for hash
+tables that have #'equalp as test."
+  (labels ((make-map (size)
+             (let ((result (make-hash-table :test #'equalp)))
+               (loop
+                  for i from 1 to size
+                  do (setf (gethash i result) (- i)))
+               result)))
+    (let ((small-map (make-map 10))
+          (medium-map (make-map 1000))
+          (big-map (make-map 70000)))
+      (is (equalp small-map (mpk:decode (mpk:encode small-map))))
+      (is (equalp medium-map (mpk:decode (mpk:encode medium-map))))
+      (is (equalp big-map (mpk:decode (mpk:encode big-map)))))))
+
+(test extension-decoding-cons
+  "Test that (equalp (decode (encode data)) data) holds for conses."
+  (let ((mpk:*use-extensions* t))
+    (is (equalp '(1 . 2) (mpk:decode (mpk:encode '(1 . 2)))))))
+
+(test extension-decoding-symbol
+  "Test that (equalp (decode (encode data)) data) holds for symbols,
+  with and without a symbol<->int table."
+  (let ((mpk:*use-extensions* t))
+    (is (equalp :a (mpk:decode (mpk:encode :a))))
+    (mpk:with-symbol-int-table (mpk:get-symbol-int-table  '((:a 10)))
+      (is (equalp :a (mpk:decode (mpk:encode :a)))))))
+
+(test extension-decoding-rational
+  "Tests that (equalp (decode (encode data)) data) holds for rationals."
+  (let ((mpk:*use-extensions* t))
+    (is (equalp (/ 1 2) (mpk:decode (mpk:encode (/ 1 2)))))))
