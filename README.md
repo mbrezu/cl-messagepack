@@ -9,11 +9,8 @@ http://wiki.msgpack.org/display/MSGPACK/Format+specification.
 Depends on `flexi-streams` and `babel`. Floating point values are
 supported only on SBCL currently.
 
-Status: first draft encoder and decoder implemented.
-
-To do:
-
- * decoding tests.
+Status: first draft encoder and decoder implemented, added extensions
+for some Lisp data types (see below), simple tests.
 
 ## Extensions to the Message Pack specification
 
