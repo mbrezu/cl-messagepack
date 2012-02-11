@@ -46,3 +46,12 @@ cannot be encoded as an integer (it is too large to be encoded as an
 uint64 or an int64, it will be encoded as a string. The same happens
 for large denominators).
 
+## Testing
+
+Copy the `cl-messagepack` directory to the `local-projects` directory
+of your Quicklisp install, then 
+
+    (require :cl-messagepack)
+    (fiveam:run! 'mpk-tests::cl-messagepack-tests)
+
+in a REPL (tested under SBCL and CCL under Linux x64).
