@@ -33,7 +33,8 @@
            *int->symbol*
            get-symbol-int-table
            with-symbol-int-table
-           *decoder-prefers-lists*))
+           *decoder-prefers-lists*
+           *decoder-prefers-alists*))
 
 (defpackage #:messagepack-tests
   (:use #:cl #:fiveam)

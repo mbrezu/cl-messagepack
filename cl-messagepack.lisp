@@ -98,6 +98,7 @@
 (defvar *int->symbol* nil)
 (defvar *symbol->int* nil)
 (defvar *decoder-prefers-lists* nil)
+(defvar *decoder-prefers-alists* nil)
 
 (defmacro with-symbol-int-table (tables &body body)
   `(let ((*symbol->int* (first ,tables))
@@ -390,12 +391,17 @@
         (decode-stream stream)))
 
 (defun decode-map (length stream)
-  (let ((hash-table (make-hash-table :test #'equalp)))
-    (loop repeat length
-       do (let ((key (decode-stream stream))
-                (value (decode-stream stream)))
-            (setf (gethash key hash-table) value)))
-    hash-table))
+  (if *decoder-prefers-alists*
+      (loop
+         repeat length
+         collect (cons (decode-stream stream)
+                       (decode-stream stream)))
+      (let ((hash-table (make-hash-table :test #'equalp)))
+        (loop repeat length
+           do (let ((key (decode-stream stream))
+                    (value (decode-stream stream)))
+                (setf (gethash key hash-table) value)))
+        hash-table)))
 
 (defun decode-array (length stream)
   (if *decoder-prefers-lists*

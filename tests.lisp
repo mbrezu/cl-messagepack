@@ -180,21 +180,22 @@ encode properly."
         (is (equalp medium-list (mpk:decode (mpk:encode medium-list))))
         (is (equalp long-list (mpk:decode (mpk:encode long-list))))))))
 
+(defun make-map (size)
+  (let ((result (make-hash-table :test #'equalp)))
+    (loop
+       for i from 1 to size
+       do (setf (gethash i result) (- i)))
+    result))
+
 (test decoding-maps
   "Test that (equalp (decode (encode data)) data) holds for hash
 tables that have #'equalp as test."
-  (labels ((make-map (size)
-             (let ((result (make-hash-table :test #'equalp)))
-               (loop
-                  for i from 1 to size
-                  do (setf (gethash i result) (- i)))
-               result)))
-    (let ((small-map (make-map 10))
-          (medium-map (make-map 1000))
-          (big-map (make-map 70000)))
-      (is (equalp small-map (mpk:decode (mpk:encode small-map))))
-      (is (equalp medium-map (mpk:decode (mpk:encode medium-map))))
-      (is (equalp big-map (mpk:decode (mpk:encode big-map)))))))
+  (let ((small-map (make-map 10))
+        (medium-map (make-map 1000))
+        (big-map (make-map 70000)))
+    (is (equalp small-map (mpk:decode (mpk:encode small-map))))
+    (is (equalp medium-map (mpk:decode (mpk:encode medium-map))))
+    (is (equalp big-map (mpk:decode (mpk:encode big-map))))))
 
 (test extension-decoding-cons
   "Test that (equalp (decode (encode data)) data) holds for conses."
@@ -213,3 +214,9 @@ tables that have #'equalp as test."
   "Tests that (equalp (decode (encode data)) data) holds for rationals."
   (let ((mpk:*use-extensions* t))
     (is (equalp (/ 1 2) (mpk:decode (mpk:encode (/ 1 2)))))))
+
+(test decoding-maps-to-alists
+  "Tests that decoding maps to alists works as expected."
+  (let ((mpk:*decoder-prefers-alists* t))
+    (is (equal '((1 . -1) (2 . -2) (3 . -3))
+               (mpk:decode (mpk:encode (make-map 3)))))))
