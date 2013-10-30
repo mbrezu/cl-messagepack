@@ -36,6 +36,10 @@
         3
         0)))
 
+(defun alistp (l)
+  "Alist predicate"
+  (and (consp l) (consp (car l)) (atom (caar l))))
+
 (defmacro signed-unsigned-convertors (size)
   `(progn
      (defun ,(mksymb 'sb size '-> 'ub size) (sb)
@@ -138,8 +142,12 @@
          (encode-string data stream))
         ((is-byte-array data)
          (encode-raw-bytes data stream))
-        ((or (consp data) (vectorp data))
+        ((vectorp data)
          (encode-array data stream))
+        ((consp data)
+         (if (alistp data)
+             (encode-hash data stream)
+             (encode-array data stream)))
         ((hash-table-p data)
          (encode-hash data stream))
         ((symbolp data)
@@ -211,6 +219,10 @@
                     (encode-stream key stream)
                     (encode-stream value stream))
                   data))
+        ((alistp data)
+         (dolist (pair data)
+           (encode-stream (car pair) stream)
+           (encode-stream (cdr pair) stream)))
         ((vectorp data)
          (dotimes (i (length data))
            (encode-stream (aref data i) stream)))
