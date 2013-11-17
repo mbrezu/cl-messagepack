@@ -234,9 +234,12 @@
 (defun encode-sequence-length (data stream
                                short-prefix short-length
                                typecode-16 typecode-32)
-  (let ((len (if (hash-table-p data)
-                 (hash-table-count data)
-                 (length data))))
+  (let ((len (cond ((hash-table-p data) (hash-table-count data))
+		   ((plistp data) (let ((ln (length data)))
+				    (if (evenp ln)
+					(/ ln 2)
+					(error "Malformed plist ~s. Length should be even." data))))
+		   (t (length data)))))
     (cond ((<= 0 len short-length)
            (write-byte (+ short-prefix len) stream))
           ((<= 0 len 65535)
