@@ -40,6 +40,10 @@
   "Alist predicate"
   (and (consp l) (consp (car l)) (atom (caar l))))
 
+(defun plistp (l)
+  "Plist predicate."
+  (and (consp l) (keywordp (car l)) (consp (cdr l))))
+
 (defmacro signed-unsigned-convertors (size)
   `(progn
      (defun ,(mksymb 'sb size '-> 'ub size) (sb)
@@ -145,7 +149,7 @@
         ((vectorp data)
          (encode-array data stream))
         ((consp data)
-         (if (alistp data)
+         (if (or (alistp data) (plistp data))
              (encode-hash data stream)
              (encode-array data stream)))
         ((hash-table-p data)
@@ -223,6 +227,11 @@
          (dolist (pair data)
            (encode-stream (car pair) stream)
            (encode-stream (cdr pair) stream)))
+	((plistp data)
+	 (loop
+	    for lst on data by #'cddr
+	    do (progn (encode-stream (car  lst) stream)
+		      (encode-stream (cadr lst) stream))))
         ((vectorp data)
          (dotimes (i (length data))
            (encode-stream (aref data i) stream)))
