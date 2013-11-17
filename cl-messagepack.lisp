@@ -40,6 +40,10 @@
   "Alist predicate"
   (and (consp l) (consp (car l)) (atom (caar l))))
 
+(defun plistp (l)
+  "Plist predicate."
+  (and (consp l) (keywordp (car l)) (consp (cdr l))))
+
 (defmacro signed-unsigned-convertors (size)
   `(progn
      (defun ,(mksymb 'sb size '-> 'ub size) (sb)
@@ -145,7 +149,7 @@
         ((vectorp data)
          (encode-array data stream))
         ((consp data)
-         (if (alistp data)
+         (if (or (alistp data) (plistp data))
              (encode-hash data stream)
              (encode-array data stream)))
         ((hash-table-p data)
@@ -223,6 +227,11 @@
          (dolist (pair data)
            (encode-stream (car pair) stream)
            (encode-stream (cdr pair) stream)))
+	((plistp data)
+	 (loop
+	    for lst on data by #'cddr
+	    do (progn (encode-stream (car  lst) stream)
+		      (encode-stream (cadr lst) stream))))
         ((vectorp data)
          (dotimes (i (length data))
            (encode-stream (aref data i) stream)))
@@ -234,9 +243,12 @@
 (defun encode-sequence-length (data stream
                                short-prefix short-length
                                typecode-16 typecode-32)
-  (let ((len (if (hash-table-p data)
-                 (hash-table-count data)
-                 (length data))))
+  (let ((len (cond ((hash-table-p data) (hash-table-count data))
+		   ((plistp data) (let ((ln (length data)))
+				    (if (evenp ln)
+					(/ ln 2)
+					(error "Malformed plist ~s. Length should be even." data))))
+		   (t (length data)))))
     (cond ((<= 0 len short-length)
            (write-byte (+ short-prefix len) stream))
           ((<= 0 len 65535)

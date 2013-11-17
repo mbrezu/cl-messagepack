@@ -96,13 +96,37 @@ encode properly."
                (loop
                   for i from 1 to size
                   do (setf (gethash i result) (- i)))
-               result)))
+               result))
+	   (make-alist (size)
+	     (let ((result ()))
+	       (loop
+		  for i from 1 to size
+		  do (push (cons i (- i)) result))
+	       result))
+	   (make-plist (size)
+	     (loop
+		for i from 1 to size
+		append (list (intern (write-to-string i) :keyword) (- i)))))
     (is (equalp #(#x8A)
                 (subseq (mpk:encode (make-map 10)) 0 1)))
+    (is (equalp #(#x8A)
+                (subseq (mpk:encode (make-alist 10)) 0 1)))
+    (is (equalp #(#x8A)
+                (subseq (mpk:encode (make-plist 10)) 0 1)))
     (is (equalp #(#xDE #x00 #x10)
                 (subseq  (mpk:encode (make-map 16)) 0 3)))
+    (is (equalp #(#xDE #x00 #x10)
+                (subseq  (mpk:encode (make-alist 16)) 0 3)))
+    (is (equalp #(#xDE #x00 #x10)
+                (subseq  (mpk:encode (make-plist 16)) 0 3)))
     (is (equalp #(#xDF #x00 #x01 #x00 #x00)
                 (subseq (mpk:encode (make-map 65536))
+                        0 5)))
+    (is (equalp #(#xDF #x00 #x01 #x00 #x00)
+                (subseq (mpk:encode (make-alist 65536))
+                        0 5)))
+    (is (equalp #(#xDF #x00 #x01 #x00 #x00)
+                (subseq (mpk:encode (make-plist 65536))
                         0 5)))))
 
 (test extension-cons
