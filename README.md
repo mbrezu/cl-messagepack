@@ -14,6 +14,15 @@ for some Lisp data types (see below), simple tests.
 
 ## Extensions to the Message Pack specification
 
+### (C0) 'NIL'
+
+This translates to `NIL` in Lisp directly, but see `C2` (`False`) below, too.
+
+### (C2) 'False'
+
+On encoding this can be achieved via `:false`; when this is encountered 
+during decoding, `NIL` is returned to Lisp as long `*use-false*` is kept `NIL`.
+
 ### (C4) 'Pure' Cons
 
 A 'pure' cons is a cons whose `CDR` is not a cons. Regular lists are
