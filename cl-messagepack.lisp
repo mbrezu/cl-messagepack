@@ -101,7 +101,6 @@
        ,@(loop for i from (1- byte-count) downto 0
             collect `(write-byte (ldb (byte 8 ,(* 8 i)) ,g-number) ,g-stream)))))
 
-(defvar *use-extensions* nil)
 (defvar *use-false* nil)
 (defvar *symbol->int* nil)
 (defvar *int->symbol* nil)
@@ -142,8 +141,6 @@
         ((null data) (write-byte #xc0 stream))
         ((eq data :false) (write-byte #xc2 stream))
         ((eq data t) (write-byte #xc3 stream))
-        ((and *use-extensions* (pure-cons data))
-         (encode-cons data stream))
         ((stringp data)
          (encode-string data stream))
         ((is-byte-array data)
@@ -158,8 +155,6 @@
          (encode-hash data stream))
         ((symbolp data)
          (encode-symbol data stream))
-        ((and *use-extensions* (rationalp data))
-         (encode-rational data stream))
         (t (error
             (format nil
                     "Cannot encode data ~a (maybe you should set *use-extensions* to t?)." data)))))
@@ -180,17 +175,8 @@
   (encode-stream (cdr data) stream))
 
 (defun encode-symbol (data stream)
-  (cond (*use-extensions*
-         (let (code)
-           (cond ((and *symbol->int* (setf code (gethash data *symbol->int*)))
-                  (write-byte #xc6 stream)
-                  (encode-integer code stream))
-                 (t
-                  (write-byte #xc5 stream)
-                  (encode-string (package-name (symbol-package data)) stream)
-                  (encode-string (symbol-name data) stream)))))
-        (t
-         (encode-string (symbol-name data) stream))))
+  ;; TODO: bind *package* to :keywords, so that the package is included as well?
+  (encode-string (symbol-name data) stream))
 
 (defun encode-string (data stream)
   (encode-raw-bytes (babel:string-to-octets data) stream))
@@ -375,14 +361,6 @@
            (decode-map (load-big-endian stream 2) stream))
           ((= #xdf byte)
            (decode-map (load-big-endian stream 4) stream))
-          ((and *use-extensions* (= #xc4 byte))
-           (decode-cons stream))
-          ((and *use-extensions* (= #xc5 byte))
-           (decode-symbol stream))
-          ((and *use-extensions* (= #xc6 byte))
-           (decode-symbol-as-number stream))
-          ((and *use-extensions* (= #xc7 byte))
-           (decode-rational stream))
           (t (error
               (format nil
                       "Cannot decode ~a (maybe you should set *use-extensions* to t?)" byte))))))

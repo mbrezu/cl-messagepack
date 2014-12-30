@@ -28,7 +28,6 @@
   (:export encode encode-stream
            decode decode-stream
            write-hex
-           *use-extensions*
            *symbol->int*
            *int->symbol*
            get-symbol-int-table
