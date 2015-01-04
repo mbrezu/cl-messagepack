@@ -129,24 +129,13 @@ encode properly."
                 (subseq (mpk:encode (make-plist 65536))
                         0 5)))))
 
-(test extension-cons
-  "Test that conses are encoded properly."
-  (let ((mpk:*use-extensions* t))
-    (is (equalp #(#xC4 #x01 #x02) (mpk:encode (cons 1 2))))))
-
-(test extension-symbol
-  "Test that symbols are encoded properly."
-  (let ((mpk:*use-extensions* t))
-    (is (equalp #(#xC5 #xA7 #x4B #x45 #x59 #x57 #x4F #x52 #x44 #xA1 #x41)
-                (mpk:encode :a)))
-    (mpk:with-symbol-int-table (mpk:get-symbol-int-table  '((:a 10)))
-      (is (equalp #(198 10)
-                  (mpk:encode :a))))))
-
-(test extension-rational
-  "Test that rationals are encoded properly."
-  (let ((mpk:*use-extensions* t))
-    (is (equalp #(#xC7 #x01 #x02) (mpk:encode (/ 1 2))))))
+(test extension-types
+  "Test that extended types are encoded properly."
+  (let ((mpk:*extended-types* 
+          (mpk:define-extension-types 
+            '(7   type1))))
+    (is (equalp #(#xC7 #x01 #x07 #x09) 
+                (mpk:encode (make-instance 'type1 :id 9))))))
 
 (test decoding-integers
   "Test that (equalp (decode (encode data)) data) for integers (that
@@ -221,23 +210,15 @@ tables that have #'equalp as test."
     (is (equalp medium-map (mpk:decode (mpk:encode medium-map))))
     (is (equalp big-map (mpk:decode (mpk:encode big-map))))))
 
-(test extension-decoding-cons
-  "Test that (equalp (decode (encode data)) data) holds for conses."
-  (let ((mpk:*use-extensions* t))
-    (is (equalp '(1 . 2) (mpk:decode (mpk:encode '(1 . 2)))))))
-
-(test extension-decoding-symbol
-  "Test that (equalp (decode (encode data)) data) holds for symbols,
-  with and without a symbol<->int table."
-  (let ((mpk:*use-extensions* t))
-    (is (equalp :a (mpk:decode (mpk:encode :a))))
-    (mpk:with-symbol-int-table (mpk:get-symbol-int-table  '((:a 10)))
-      (is (equalp :a (mpk:decode (mpk:encode :a)))))))
-
-(test extension-decoding-rational
-  "Tests that (equalp (decode (encode data)) data) holds for rationals."
-  (let ((mpk:*use-extensions* t))
-    (is (equalp (/ 1 2) (mpk:decode (mpk:encode (/ 1 2)))))))
+(test extension-types-decoding
+  "Test that extended types are decoded properly."
+  (let ((mpk:*extended-types* 
+          (mpk:define-extension-types 
+            '(:numeric
+              7 type1)))
+        (mpk:*lookup-table* (mpk:make-lookup-table)))
+    (let ((src (make-instance 'type1 :id 9)))
+      (is (eq (mpk:decode (mpk:encode src)))))))
 
 (test decoding-maps-to-alists
   "Tests that decoding maps to alists works as expected."

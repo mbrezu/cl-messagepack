@@ -108,6 +108,9 @@
 (defvar *decoder-prefers-lists* nil)
 (defvar *decoder-prefers-alists* nil)
 
+(defvar *extended-types* nil)
+(defvar *lookup-table* nil)
+
 (defmacro with-symbol-int-table (tables &body body)
   `(let ((*symbol->int* (first ,tables))
          (*int->symbol* (second ,tables)))
@@ -155,9 +158,13 @@
          (encode-hash data stream))
         ((symbolp data)
          (encode-symbol data stream))
+        ((and *extended-types*
+              (typep data 'extension-type)
+              (try-encode-ext-type data stream))
+         t)
         (t (error
             (format nil
-                    "Cannot encode data ~a (maybe you should set *use-extensions* to t?)." data)))))
+                    "Cannot encode data ~a (maybe you should bind *extended-types*?)." data)))))
 
 (defun encode-rational (data stream)
   (labels ((encode-bignum (data)
@@ -237,8 +244,12 @@
 					(/ ln 2)
 					(error "Malformed plist ~s. Length should be even." data))))
 		   (t (length data)))))
-    (cond ((<= 0 len short-length)
+    (cond ((and (<= 0 len short-length) (plusp short-length))
            (write-byte (+ short-prefix len) stream))
+          ((and (<= 0 len #xff) (zerop short-length))
+           (write-byte short-prefix stream)
+           (write-byte len stream)
+           (store-big-endian len stream 1))
           ((<= 0 len 65535)
            (write-byte typecode-16 stream)
            (store-big-endian len stream 2))
@@ -292,6 +303,14 @@
   (or (<= 0 data (1- (expt 2 64)))
       (<= (- (expt 2 63)) data (1- (expt 2 63)))))
 
+(defun parse-big-endian (byte-array)
+  ;; TODO: do words at once?
+  (loop with result = 0
+        for b across byte-array
+        do (setf result (+ (ash result 8)
+                           b))
+        finally (return result)))
+
 (defmacro load-big-endian (stream byte-count)
   (let ((g-stream (gensym "stream")))
     `(let ((,g-stream ,stream)
@@ -301,6 +320,7 @@
             collect `(setf result (+ (ash result 8)
                                      (read-byte ,g-stream))))
        result)))
+
 
 (defun decode (byte-array)
   (flexi-streams:with-input-from-sequence (stream byte-array)
@@ -328,6 +348,22 @@
            (ub32->sb32 (load-big-endian stream 4)))
           ((= #xd3 byte)
            (ub64->sb64 (load-big-endian stream 8)))
+          ((<= #xd4 byte #xd8) ; fixext1: type, data
+           (let ((len (ash 1 (- byte #xd4))))
+             (typed-data (read-byte stream)
+                         (decode-array len stream))))
+          ((= #xc7 byte)
+           (let ((len (read-byte stream)))
+             (typed-data (read-byte stream)
+                         (decode-array len stream))))
+          ((= #xc8 byte)
+           (let ((len (load-big-endian stream 2)))
+             (typed-data (read-byte stream)
+                         (decode-array len stream))))
+          ((= #xc9 byte)
+           (let ((len (load-big-endian stream 4)))
+             (typed-data (read-byte stream)
+                         (decode-array len stream))))
           ((= #xc0 byte)
            nil)
           ((= #xc3 byte)
@@ -345,6 +381,8 @@
                #-(or sbcl ccl) (error "No floating point support yet.")))
           ((= 5 (ldb (byte 3 5) byte))
            (decode-string (ldb (byte 5 0) byte) stream))
+          ((= #xd9 byte)
+           (decode-string (read-byte stream) stream))
           ((= #xda byte)
            (decode-string (load-big-endian stream 2) stream))
           ((= #xdb byte)
@@ -361,9 +399,11 @@
            (decode-map (load-big-endian stream 2) stream))
           ((= #xdf byte)
            (decode-map (load-big-endian stream 4) stream))
+          ((= #xc4 byte)
+           (decode-array (read-byte stream) stream))
           (t (error
               (format nil
-                      "Cannot decode ~a (maybe you should set *use-extensions* to t?)" byte))))))
+                      "Cannot decode ~a (maybe you should bind *extended-types*?)" byte))))))
 
 (defun decode-rational (stream)
   (let ((numerator (decode-stream stream))
@@ -423,3 +463,163 @@
     (read-sequence seq stream)
     (babel:octets-to-string seq)))
 
+
+
+;; How to get type-num for the types?
+;; A class would have a :allocation :class ...
+;; A pointer to the e-t-d would be longer than the int itself.
+(defclass extension-type ()
+  ((id :initform (error "need an ID")
+       :initarg 'messagepack:id
+       :reader extension-type-id
+       :writer (setf extension-type-id)
+       :type (or integer (array (unsigned-byte 8) *))))
+  (:documentation
+    "Base type for Ext-Types."))
+
+(defmethod print-object ((obj extension-type) stream)
+  (print-unreadable-object (obj stream :type T :identity T)
+    (format stream "~a" (extension-type-id obj))))
+
+
+(defclass extension-type-description ()
+  #. (mapcar (lambda (d)
+               (destructuring-bind (name init &rest rest) d
+                 `(,name :initform ,init
+                         :initarg ,(intern (symbol-name name) :keyword)
+                         :reader ,name
+                         :writer (setf ,name)
+                         ,@ rest)))
+             '((type-number     nil    :type (integer 0 127))
+               (encode-with     nil    :type function)
+               (decode-with     nil    :type function)
+               (as-numeric      nil    :type (member t nil))
+               (reg-class       nil)
+               )))
+
+(defmethod print-object ((obj extension-type-description) stream)
+  (print-unreadable-object (obj stream :type T :identity T)
+    (format stream "~a ~d"
+            (class-name (reg-class obj))
+            (type-number obj))))
+
+
+(defun symbol-to-extension-type (num sym decode-as)
+  (assert (member decode-as '(:numeric :byte-array)))
+  (let ((num? (eq decode-as :numeric)))
+    (unless (find-class sym nil)
+      (closer-mop:ensure-class sym
+                               :direct-superclasses '(extension-type)))
+    (flet
+      ((maybe-cache (obj id)
+         (when (and *lookup-table*
+                    (not (gethash (list *lookup-table*
+                                          `(,num :type array)
+                                          `(,id :type array))))
+           (setf (access:accesses *lookup-table*
+                                  `(,num :type array)
+                                  `(,id :type array))
+                 obj))))
+      (make-instance 'extension-type-description
+                     :type-number  num
+                     :reg-class    (find-class sym)
+                     :encode-with  (lambda (obj)
+                                     ;; TODO: better use EXTENSION-TYPE-ID?
+                                     (let ((id (slot-value obj 'id)))
+                                       ;; store outgoing objects...
+                                       (maybe-cache obj id)
+                                       id))
+                     :decode-with  (lambda (id)
+                                     ;; TODO: (if num? ( ... ) x)?
+                                     (let ((obj (make-instance sym
+                                                               'id id)))
+                                       ;; store incoming objects...
+                                       ;; TODO: what if that object already exists?
+                                       (maybe-cache obj id)
+                                       obj))
+                     :as-numeric   num?))))
+
+
+(defun typed-data (type-num bytes)
+  (let ((ext-type (find type-num *extended-types*
+                        :test #'eql
+                        :key #'type-number)))
+    ;; TODO: better throw or error?
+    (assert ext-type)
+    (funcall (decode-with ext-type)
+             (if (as-numeric ext-type)
+               (parse-big-endian bytes)
+               bytes))))
+
+(defun try-encode-ext-type (obj stream)
+  (let ((ext-type (find (class-of obj) *extended-types*
+                        :test #'eq
+                        :key #'reg-class)))
+    (when ext-type
+      (let* ((id (extension-type-id obj))
+             (bytes (if (numberp id)
+                     (flexi-streams:with-output-to-sequence (s)
+                       (encode-integer (extension-type-id obj) s))
+                     (extension-type-id obj)))
+             (len (length bytes)))
+        ;; TODO: in theory the ID might be longer than 256 bytes...
+        ;; (encode-sequence-length bytes stream #xc7 0 #xc8 #xc9)
+        ;; but we need the type inbetween.
+        (assert (<= 0 len #xff))
+        (write-byte #xc7 stream)
+        (write-byte len stream)
+        (write-byte (type-number ext-type) stream)
+        (write-sequence bytes stream))
+      T)))
+
+
+(defun define-extension-types (args)
+  "This function defines types for the MessagePack extension type system
+   (#xD4 to #xD8, and #xC7 to #xC9), and returns a list of them
+   that can be bound to *EXTENSION-TYPES*.
+   128 different types can be available simultaneously at any one time.
+
+   This function takes integers, flags, and/or closures as arguments;
+   these get used as items for the next arguments.
+   * Integers define which type number to use next.
+   * Flags for decoding:
+       :BYTE-ARRAY    - return the bytes as array. Default.
+       :NUMERIC       - return value in DATA as a number. Only for fixextN.
+   * A symbol associates the current type number to this type;
+       this type should be derived from MESSAGEPACK-EXT-TYPE, as
+       to have a correct MESSAGEPACK:ID slot.
+
+   Example:
+   (defvar *my-extension-types*
+     (define-extension-types :numeric
+                             5 'buffer 'block
+                             8 'cursor))
+   Eg., the type 6 would then return (MAKE-BLOCK 'ID <content>)."
+  (loop with type-num = 0
+        with decode-as = :byte-array
+        ; with encode
+        for el in args
+        append (cond
+                 ((numberp el)
+                  (if (<= 0 el 127)
+                    (setf type-num el)
+                    (error "Integer ~a out of range." el))
+                  nil)
+                 ((member el '(:byte-array :numeric))
+                  (setf decode-as el)
+                  nil)
+                 ((keywordp el)
+                  (error "Keywords ~s not in use." el))
+                 ((symbolp el)
+                  (prog1
+                    (list (symbol-to-extension-type type-num el decode-as))
+                    (incf type-num)))
+                 (T
+                  (error "~s not understood." el))
+                 )))
+
+
+(defun make-lookup-table ()
+  "Returns something that can be used 
+  (make-hash-table
+    :test #'equal))
