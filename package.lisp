@@ -28,11 +28,14 @@
   (:export encode encode-stream
            decode decode-stream
            write-hex
-           *use-extensions*
            *symbol->int*
            *int->symbol*
            get-symbol-int-table
            with-symbol-int-table
+           *extended-types*
+           *lookup-table*
+           define-extension-types
+           symbol-to-extension-type
            *decoder-prefers-lists*
            *decoder-prefers-alists*))
 

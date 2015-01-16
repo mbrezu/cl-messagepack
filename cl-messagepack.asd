@@ -24,7 +24,7 @@
 
 (asdf:defsystem #:cl-messagepack
   :serial t
-  :depends-on (:flexi-streams :babel :cl-json :fiveam)
+  :depends-on (:flexi-streams :babel :cl-json :fiveam :closer-mop :access)
   :description "A Common-Lisp implementation of Message Pack serialization."
   :author "Miron Brezuleanu"
   :license "Simplified BSD License"
