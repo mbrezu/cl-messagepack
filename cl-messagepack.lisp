@@ -559,9 +559,9 @@
     (when ext-type
       (let* ((id (extension-type-id obj))
              (bytes (if (numberp id)
-                     (flexi-streams:with-output-to-sequence (s)
-                       (encode-integer (extension-type-id obj) s))
-                     (extension-type-id obj)))
+                      (flexi-streams:with-output-to-sequence (s)
+                        (encode-integer (extension-type-id obj) s))
+                      (extension-type-id obj)))
              (len (length bytes)))
         ;; TODO: in theory the ID might be longer than 256 bytes...
         ;; (encode-sequence-length bytes stream #xc7 0 #xc8 #xc9)
