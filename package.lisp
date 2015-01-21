@@ -22,8 +22,13 @@
 
 ;;;; package.lisp
 
+;; This package is used to make 'MESSAGEPACK:ID available
+;; without having it imported into other packages.
+(defpackage #:messagepack-sym
+  (:export id))
+
 (defpackage #:messagepack
-  (:use #:cl)
+  (:use #:cl #:messagepack-sym)
   (:nicknames #:mpk)
   (:export encode encode-stream
            decode decode-stream
