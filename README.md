@@ -71,7 +71,7 @@ DEFINE-EXTENSION-TYPES will create their definition if needed.
 
 Please remember that only the _id_ gets transmitted; if you want to get the
 _same_ object (with _same_ as in `EQ`), you'll need to make sure that
-the correct object is looked up again; this is what `*lookup-table*`
+the correct object is looked up again; this is what `*LOOKUP-TABLE*`
 above is for. Remember to bind that per RPC-connection to avoid duplicate IDs,
 and to invalidate it if the remote process changes!
 

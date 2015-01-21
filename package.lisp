@@ -39,6 +39,7 @@
            with-symbol-int-table
            *extended-types*
            *lookup-table*
+           make-lookup-table
            define-extension-types
            symbol-to-extension-type
            *decoder-prefers-lists*

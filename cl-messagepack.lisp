@@ -508,12 +508,13 @@
   (assert (member decode-as '(:numeric :byte-array)))
   (let ((num? (eq decode-as :numeric)))
     (unless (find-class sym nil)
-      (closer-mop:ensure-class sym
-                               :direct-superclasses '(extension-type)))
+      (closer-mop:ensure-class
+        sym
+        :direct-superclasses '(extension-type)))
     (flet
       ((maybe-cache (obj id)
          (when (and *lookup-table*
-                    (not (gethash (list *lookup-table*
+                    (not (access:accesses *lookup-table*
                                           `(,num :type array)
                                           `(,id :type array))))
            (setf (access:accesses *lookup-table*
@@ -620,6 +621,7 @@
 
 
 (defun make-lookup-table ()
-  "Returns something that can be used 
-  (make-hash-table
-    :test #'equal))
+  "Returns something that can be used for *LOOKUP-TABLE*."
+  (make-array 10
+              :adjustable T
+              :fill-pointer T))
