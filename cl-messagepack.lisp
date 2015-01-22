@@ -470,7 +470,7 @@
 ;; A pointer to the e-t-d would be longer than the int itself.
 (defclass extension-type ()
   ((id :initform (error "need an ID")
-       :initarg 'messagepack:id
+       :initarg id
        :reader extension-type-id
        :writer (setf extension-type-id)
        :type (or integer (array (unsigned-byte 8) *))))
@@ -508,12 +508,13 @@
   (assert (member decode-as '(:numeric :byte-array)))
   (let ((num? (eq decode-as :numeric)))
     (unless (find-class sym nil)
-      (closer-mop:ensure-class sym
-                               :direct-superclasses '(extension-type)))
+      (closer-mop:ensure-class
+        sym
+        :direct-superclasses '(extension-type)))
     (flet
       ((maybe-cache (obj id)
          (when (and *lookup-table*
-                    (not (gethash (list *lookup-table*
+                    (not (access:accesses *lookup-table*
                                           `(,num :type array)
                                           `(,id :type array))))
            (setf (access:accesses *lookup-table*
@@ -558,9 +559,9 @@
     (when ext-type
       (let* ((id (extension-type-id obj))
              (bytes (if (numberp id)
-                     (flexi-streams:with-output-to-sequence (s)
-                       (encode-integer (extension-type-id obj) s))
-                     (extension-type-id obj)))
+                      (flexi-streams:with-output-to-sequence (s)
+                        (encode-integer (extension-type-id obj) s))
+                      (extension-type-id obj)))
              (len (length bytes)))
         ;; TODO: in theory the ID might be longer than 256 bytes...
         ;; (encode-sequence-length bytes stream #xc7 0 #xc8 #xc9)
@@ -620,6 +621,7 @@
 
 
 (defun make-lookup-table ()
-  "Returns something that can be used 
-  (make-hash-table
-    :test #'equal))
+  "Returns something that can be used for *LOOKUP-TABLE*."
+  (make-array 10
+              :adjustable T
+              :fill-pointer T))
