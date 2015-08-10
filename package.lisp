@@ -43,7 +43,8 @@
            define-extension-types
            symbol-to-extension-type
            *decoder-prefers-lists*
-           *decoder-prefers-alists*))
+           *decoder-prefers-alists*
+           *decode-bin-as-string*))
 
 (defpackage #:messagepack-tests
   (:use #:cl #:fiveam)
