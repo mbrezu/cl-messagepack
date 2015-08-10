@@ -401,6 +401,10 @@
            (decode-map (load-big-endian stream 4) stream))
           ((= #xc4 byte)
            (decode-array (read-byte stream) stream))
+          ((= #xc5 byte)
+           (decode-array (load-big-endian stream 2) stream))
+          ((= #xc6 byte)
+           (decode-array (load-big-endian stream 4) stream))
           (t (error
               (format nil
                       "Cannot decode ~a (maybe you should bind *extended-types*?)" byte))))))
