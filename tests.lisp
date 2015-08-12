@@ -168,6 +168,35 @@ encode properly."
       (is (string= medium-string (mpk:decode (mpk:encode medium-string))))
       (is (string= long-string (mpk:decode (mpk:encode long-string)))))))
 
+(test decoding-binary
+  "Test decoding of binary type."
+  (is (equalp #() (mpk:decode #(#xc4 #x00))))
+  (is (equalp #() (mpk:decode #(#xc5 #x00 #x00))))
+  (is (equalp #() (mpk:decode #(#xc6 #x00 #x00 #x00 #x00)))) 
+  (flet ((to-b8array (&rest contents) 
+           (apply #'concatenate '(vector (unsigned-byte 8)) contents)))
+    (let ((short-array #(1 2 3))
+          (medium-array (make-array 1000 :initial-element 10))
+          (long-array (make-array 70000 :initial-element 10)))
+      (is (equalp short-array  (mpk:decode (to-b8array #(#xc4 #x03) short-array))))
+      (is (equalp short-array  (mpk:decode (to-b8array #(#xc5 #x00 #x03) short-array))))
+      (is (equalp medium-array (mpk:decode (to-b8array #(#xc5 #x03 #xe8) medium-array))))
+      (is (equalp short-array  (mpk:decode (to-b8array #(#xc6 #x00 #x00 #x00 #x03) short-array)))) 
+      (is (equalp medium-array (mpk:decode (to-b8array #(#xc6 #x00 #x00 #x03 #xe8) medium-array)))) 
+      (is (equalp long-array   (mpk:decode (to-b8array #(#xc6 #x00 #x01 #x11 #x70) long-array)))))
+    (let ((mpk:*decode-bin-as-string* T)
+          (short-string "tes")
+          (medium-string (with-output-to-string (str)
+                           (loop repeat (/ 1000 5) do (princ "tests" str))))
+          (long-string (with-output-to-string (str)
+                         (loop repeat (/ 70000 5) do (princ "tests" str)))))
+      (is (string= short-string  (mpk:decode (to-b8array #(#xc4 #x03) (babel:string-to-octets short-string)))))
+      (is (string= short-string  (mpk:decode (to-b8array #(#xc5 #x00 #x03) (babel:string-to-octets short-string)))))
+      (is (string= medium-string (mpk:decode (to-b8array #(#xc5 #x03 #xe8) (babel:string-to-octets medium-string)))))
+      (is (string= short-string  (mpk:decode (to-b8array #(#xc6 #x00 #x00 #x00 #x03) (babel:string-to-octets short-string))))) 
+      (is (string= medium-string (mpk:decode (to-b8array #(#xc6 #x00 #x00 #x03 #xe8) (babel:string-to-octets medium-string))))) 
+      (is (string= long-string   (mpk:decode (to-b8array #(#xc6 #x00 #x01 #x11 #x70) (babel:string-to-octets long-string))))))))
+
 (test decoding-arrays
   "Test that (equalp (decode (encode data)) data) holds for arrays."
   (let ((short-array #(1 2 3))
