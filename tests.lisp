@@ -54,7 +54,9 @@
   "Test encoding of single and double precision floating point
 numbers."
   #+sbcl (is (equalp #(#xCA #x3F #x80 #x00 #x00) (mpk:encode 1.0s0)))
-  (is (equalp #(#xCB #x3F #xF0 #x00 #x00 #x00 #x00 #x00 #x00) (mpk:encode 1.0d0))))
+  #+sbcl (is (equalp #(#xCA #xBF #x80 #x00 #x00) (mpk:encode -1.0s0)))
+  (is (equalp #(#xCB #x3F #xF0 #x00 #x00 #x00 #x00 #x00 #x00) (mpk:encode 1.0d0)))
+  (is (equalp #(#xCB #xBF #xF0 #x00 #x00 #x00 #x00 #x00 #x00) (mpk:encode -1.0d0))))
 
 (test strings
   "Test encoding of strings (raw bytes in msgpack parlance, strings
@@ -131,10 +133,10 @@ encode properly."
 
 (test extension-types
   "Test that extended types are encoded properly."
-  (let ((mpk:*extended-types* 
-          (mpk:define-extension-types 
+  (let ((mpk:*extended-types*
+          (mpk:define-extension-types
             '(7   type1))))
-    (is (equalp #(#xC7 #x01 #x07 #x09) 
+    (is (equalp #(#xC7 #x01 #x07 #x09)
                 (mpk:encode (make-instance 'type1 :id 9))))))
 
 (test decoding-integers
@@ -154,7 +156,11 @@ encode properly."
 (test decoding-floats
   "Test that (equalp (decode (encode data)) data) for floats."
   #+ (or sbcl ccl) (is (eql 100d0 (mpk:decode (mpk:encode 100d0))))
-  #+ sbcl (is (eql 102s0 (mpk:decode (mpk:encode 102s0)))))
+  #+ (or sbcl ccl) (is (eql 100d0 (mpk:decode (mpk:encode -100d0))))
+  #+ (or sbcl ccl) (is (eql -1.2345678901234567e19
+                            (mpk:decode (mpk:encode -1.2345678901234567e19))))
+  #+ sbcl (is (eql 102s0 (mpk:decode (mpk:encode 102s0))))
+  #+ sbcl (is (eql 102s0 (mpk:decode (mpk:encode -102s0)))))
 
 (test decoding-strings
   "Test that (equalp (decode (encode data)) data) holds for strings."
@@ -172,8 +178,8 @@ encode properly."
   "Test decoding of binary type."
   (is (equalp #() (mpk:decode #(#xc4 #x00))))
   (is (equalp #() (mpk:decode #(#xc5 #x00 #x00))))
-  (is (equalp #() (mpk:decode #(#xc6 #x00 #x00 #x00 #x00)))) 
-  (flet ((to-b8array (&rest contents) 
+  (is (equalp #() (mpk:decode #(#xc6 #x00 #x00 #x00 #x00))))
+  (flet ((to-b8array (&rest contents)
            (apply #'concatenate '(vector (unsigned-byte 8)) contents)))
     (let ((short-array #(1 2 3))
           (medium-array (make-array 1000 :initial-element 10))
@@ -181,8 +187,8 @@ encode properly."
       (is (equalp short-array  (mpk:decode (to-b8array #(#xc4 #x03) short-array))))
       (is (equalp short-array  (mpk:decode (to-b8array #(#xc5 #x00 #x03) short-array))))
       (is (equalp medium-array (mpk:decode (to-b8array #(#xc5 #x03 #xe8) medium-array))))
-      (is (equalp short-array  (mpk:decode (to-b8array #(#xc6 #x00 #x00 #x00 #x03) short-array)))) 
-      (is (equalp medium-array (mpk:decode (to-b8array #(#xc6 #x00 #x00 #x03 #xe8) medium-array)))) 
+      (is (equalp short-array  (mpk:decode (to-b8array #(#xc6 #x00 #x00 #x00 #x03) short-array))))
+      (is (equalp medium-array (mpk:decode (to-b8array #(#xc6 #x00 #x00 #x03 #xe8) medium-array))))
       (is (equalp long-array   (mpk:decode (to-b8array #(#xc6 #x00 #x01 #x11 #x70) long-array)))))
     (let ((mpk:*decode-bin-as-string* T)
           (short-string "tes")
@@ -193,8 +199,8 @@ encode properly."
       (is (string= short-string  (mpk:decode (to-b8array #(#xc4 #x03) (babel:string-to-octets short-string)))))
       (is (string= short-string  (mpk:decode (to-b8array #(#xc5 #x00 #x03) (babel:string-to-octets short-string)))))
       (is (string= medium-string (mpk:decode (to-b8array #(#xc5 #x03 #xe8) (babel:string-to-octets medium-string)))))
-      (is (string= short-string  (mpk:decode (to-b8array #(#xc6 #x00 #x00 #x00 #x03) (babel:string-to-octets short-string))))) 
-      (is (string= medium-string (mpk:decode (to-b8array #(#xc6 #x00 #x00 #x03 #xe8) (babel:string-to-octets medium-string))))) 
+      (is (string= short-string  (mpk:decode (to-b8array #(#xc6 #x00 #x00 #x00 #x03) (babel:string-to-octets short-string)))))
+      (is (string= medium-string (mpk:decode (to-b8array #(#xc6 #x00 #x00 #x03 #xe8) (babel:string-to-octets medium-string)))))
       (is (string= long-string   (mpk:decode (to-b8array #(#xc6 #x00 #x01 #x11 #x70) (babel:string-to-octets long-string))))))))
 
 (test decoding-arrays
@@ -241,8 +247,8 @@ tables that have #'equalp as test."
 
 (test extension-types-decoding
   "Test that extended types are decoded properly."
-  (let ((mpk:*extended-types* 
-          (mpk:define-extension-types 
+  (let ((mpk:*extended-types*
+          (mpk:define-extension-types
             '(:numeric
               7 type1)))
         (mpk:*lookup-table* (mpk:make-lookup-table)))
