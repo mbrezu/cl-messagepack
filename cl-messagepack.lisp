@@ -376,7 +376,7 @@
                #-(or sbcl) (error "No floating point support yet.")))
           ((= #xcb byte)
            (or #+sbcl (sb-kernel:make-double-float (ub32->sb32 (load-big-endian stream 4))
-                                                   (load-big-endian stream 4)))
+                                                   (load-big-endian stream 4))
                #+ccl (ccl::double-float-from-bits (load-big-endian stream 4)
                                                   (load-big-endian stream 4))
                #-(or sbcl ccl) (error "No floating point support yet.")))
