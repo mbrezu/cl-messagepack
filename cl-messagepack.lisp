@@ -401,11 +401,11 @@
           ((= #xdf byte)
            (decode-map (load-big-endian stream 4) stream))
           ((= #xc4 byte)
-           (funcall (if *decode-bin-as-string* #'decode-string #'decode-array) (read-byte stream) stream))
+           (funcall (if *decode-bin-as-string* #'decode-string #'decode-byte-array) (read-byte stream) stream))
           ((= #xc5 byte)
-           (funcall (if *decode-bin-as-string* #'decode-string #'decode-array) (load-big-endian stream 2) stream))
+           (funcall (if *decode-bin-as-string* #'decode-string #'decode-byte-array) (load-big-endian stream 2) stream))
           ((= #xc6 byte)
-           (funcall (if *decode-bin-as-string* #'decode-string #'decode-array) (load-big-endian stream 4) stream))
+           (funcall (if *decode-bin-as-string* #'decode-string #'decode-byte-array) (load-big-endian stream 4) stream))
           (t (error
               (format nil
                       "Cannot decode ~a (maybe you should bind *extended-types*?)" byte))))))
