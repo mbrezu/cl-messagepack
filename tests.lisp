@@ -155,12 +155,12 @@ encode properly."
 
 (test decoding-floats
   "Test that (equalp (decode (encode data)) data) for floats."
-  #+ (or sbcl ccl) (is (eql 100d0 (mpk:decode (mpk:encode 100d0))))
-  #+ (or sbcl ccl) (is (eql 100d0 (mpk:decode (mpk:encode -100d0))))
+  #+ (or sbcl ccl) (is (eql  100d0 (mpk:decode (mpk:encode  100d0))))
+  #+ (or sbcl ccl) (is (eql -100d0 (mpk:decode (mpk:encode -100d0))))
   #+ (or sbcl ccl) (is (eql -1.2345678901234567e19
                             (mpk:decode (mpk:encode -1.2345678901234567e19))))
-  #+ sbcl (is (eql 102s0 (mpk:decode (mpk:encode 102s0))))
-  #+ sbcl (is (eql 102s0 (mpk:decode (mpk:encode -102s0)))))
+  #+ sbcl (is (eql  102s0 (mpk:decode (mpk:encode  102s0))))
+  #+ sbcl (is (eql -102s0 (mpk:decode (mpk:encode -102s0)))))
 
 (test decoding-strings
   "Test that (equalp (decode (encode data)) data) holds for strings."
