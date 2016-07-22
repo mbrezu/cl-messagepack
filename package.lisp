@@ -38,6 +38,7 @@
            get-symbol-int-table
            with-symbol-int-table
            *extended-types*
+           extension-type
            *lookup-table*
            make-lookup-table
            define-extension-types

@@ -137,7 +137,7 @@ encode properly."
           (mpk:define-extension-types
             '(7   type1))))
     (is (equalp #(#xC7 #x01 #x07 #x09)
-                (mpk:encode (make-instance 'type1 :id 9))))))
+                (mpk:encode (make-instance 'type1 'mpk:id 9))))))
 
 (test decoding-integers
   "Test that (equalp (decode (encode data)) data) for integers (that
@@ -252,8 +252,10 @@ tables that have #'equalp as test."
             '(:numeric
               7 type1)))
         (mpk:*lookup-table* (mpk:make-lookup-table)))
-    (let ((src (make-instance 'type1 :id 9)))
-      (is (eq (mpk:decode (mpk:encode src)))))))
+    (let* ((src (make-instance 'type1 'mpk:id 9))
+           (enc (mpk:encode src)))
+      (is (eq (mpk:decode enc)
+              src)))))
 
 (test decoding-maps-to-alists
   "Tests that decoding maps to alists works as expected."

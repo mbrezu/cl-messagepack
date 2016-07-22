@@ -523,14 +523,17 @@
         :direct-superclasses '(extension-type)))
     (flet
       ((maybe-cache (obj id)
-         (when (and *lookup-table*
-                    (not (access:accesses *lookup-table*
-                                          `(,num :type array)
-                                          `(,id :type array))))
-           (setf (access:accesses *lookup-table*
-                                  `(,num :type array)
-                                  `(,id :type array))
-                 obj))))
+         (if *lookup-table*
+           (or
+             (access:accesses *lookup-table*
+                              `(,num :type array)
+                              `(,id :type array))
+             (setf
+               (access:accesses *lookup-table*
+                                    `(,num :type array)
+                                    `(,id :type array))
+               obj))
+           obj)))
       (make-instance 'extension-type-description
                      :type-number  num
                      :reg-class    (find-class sym)
@@ -546,8 +549,9 @@
                                                                'id id)))
                                        ;; store incoming objects...
                                        ;; TODO: what if that object already exists?
-                                       (maybe-cache obj id)
-                                       obj))
+                                       (or
+                                         (maybe-cache obj id)
+                                         obj)))
                      :as-numeric   num?))))
 
 
@@ -566,12 +570,13 @@
   (let ((ext-type (find (class-of obj) *extended-types*
                         :test #'eq
                         :key #'reg-class)))
+    ;; doesn't run ENCODE-WITH function?!
     (when ext-type
-      (let* ((id (extension-type-id obj))
+      (let* ((id (funcall (encode-with ext-type) obj))
              (bytes (if (numberp id)
                       (flexi-streams:with-output-to-sequence (s)
-                        (encode-integer (extension-type-id obj) s))
-                      (extension-type-id obj)))
+                        (encode-integer id s))
+                      id))
              (len (length bytes)))
         ;; TODO: in theory the ID might be longer than 256 bytes...
         ;; (encode-sequence-length bytes stream #xc7 0 #xc8 #xc9)
@@ -633,5 +638,6 @@
 (defun make-lookup-table ()
   "Returns something that can be used for *LOOKUP-TABLE*."
   (make-array 10
+              :initial-element NIL
               :adjustable T
               :fill-pointer T))
