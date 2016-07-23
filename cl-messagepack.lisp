@@ -525,14 +525,8 @@
       ((maybe-cache (obj id)
          (if *lookup-table*
            (or
-             (access:accesses *lookup-table*
-                              `(,num :type array)
-                              `(,id :type array))
-             (setf
-               (access:accesses *lookup-table*
-                                    `(,num :type array)
-                                    `(,id :type array))
-               obj))
+             (lookup-table-find num id)
+             (lookup-table-insert num id obj))
            obj)))
       (make-instance 'extension-type-description
                      :type-number  num
@@ -637,7 +631,10 @@
 
 (defun make-lookup-table ()
   "Returns something that can be used for *LOOKUP-TABLE*."
-  (make-array 10
-              :initial-element NIL
-              :adjustable T
-              :fill-pointer T))
+  (make-hash-table :test #'equalp))
+
+(defun lookup-table-insert (type id obj)
+  (setf (gethash (cons type id) *lookup-table*) obj))
+
+(defun lookup-table-find (type id)
+  (gethash (cons type id) *lookup-table*))
