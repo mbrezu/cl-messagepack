@@ -90,6 +90,15 @@ encode properly."
                       0
                       15))))
 
+(test alists
+  "Test alists can be encoded into either map or lists of lists depending on
+*encode-alist-as-hash*."
+  (let ((alist '((1 11 12) ("b" "bc"))))
+    (is (equalp #(#x82 #x01 #x92 #x0B #x0C #xA1 #x62 #x91 #xA2 #x62 #x63)
+                (mpk:encode alist)))
+    (is (equalp #(#x92 #x93 #x01 #x0B #x0C #x92 #xA1 #x62 #xA2 #x62 #x63)
+                (let ((mpk:*encode-alist-as-map*)) (mpk:encode alist))))))
+
 (test maps
   "Test maps of various sizes, make sure that lengths are encoded
   properly."

@@ -43,6 +43,7 @@
            make-lookup-table
            define-extension-types
            symbol-to-extension-type
+           *encode-alist-as-map*
            *decoder-prefers-lists*
            *decoder-prefers-alists*
            *decode-bin-as-string*))

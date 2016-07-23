@@ -105,6 +105,7 @@
 (defvar *symbol->int* nil)
 (defvar *int->symbol* nil)
 (defvar *symbol->int* nil)
+(defvar *encode-alist-as-map* T)
 (defvar *decoder-prefers-lists* nil)
 (defvar *decoder-prefers-alists* nil)
 (defvar *decode-bin-as-string* nil)
@@ -152,7 +153,7 @@
         ((vectorp data)
          (encode-array data stream))
         ((consp data)
-         (if (or (alistp data) (plistp data))
+         (if (or (and *encode-alist-as-map* (alistp data)) (plistp data))
              (encode-hash data stream)
              (encode-array data stream)))
         ((hash-table-p data)
@@ -219,15 +220,15 @@
                     (encode-stream key stream)
                     (encode-stream value stream))
                   data))
-        ((alistp data)
+        ((and *encode-alist-as-map* (alistp data))
          (dolist (pair data)
            (encode-stream (car pair) stream)
            (encode-stream (cdr pair) stream)))
-	((plistp data)
-	 (loop
-	    for lst on data by #'cddr
-	    do (progn (encode-stream (car  lst) stream)
-		      (encode-stream (cadr lst) stream))))
+        ((plistp data)
+         (loop
+           for lst on data by #'cddr
+           do (progn (encode-stream (car  lst) stream)
+                     (encode-stream (cadr lst) stream))))
         ((vectorp data)
          (dotimes (i (length data))
            (encode-stream (aref data i) stream)))
