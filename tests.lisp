@@ -137,7 +137,7 @@ encode properly."
           (mpk:define-extension-types
             '(7   type1))))
     (is (equalp #(#xC7 #x01 #x07 #x09)
-                (mpk:encode (make-instance 'type1 'mpk:id 9))))))
+                (mpk:encode (make-instance 'type1 'messagepack-sym:id 9))))))
 
 (test decoding-integers
   "Test that (equalp (decode (encode data)) data) for integers (that
@@ -247,15 +247,24 @@ tables that have #'equalp as test."
 
 (test extension-types-decoding
   "Test that extended types are decoded properly."
-  (let ((mpk:*extended-types*
-          (mpk:define-extension-types
-            '(:numeric
-              7 type1)))
-        (mpk:*lookup-table* (mpk:make-lookup-table)))
-    (let* ((src (make-instance 'type1 'mpk:id 9))
-           (enc (mpk:encode src)))
-      (is (eq (mpk:decode enc)
-              src)))))
+  (dolist (test '((:byte-array #(100 200 250 5) #(100 14 1 200))
+                  (:numeric 27 100)))
+    (destructuring-bind (encoding-type id1 id2) test
+      (let ((mpk:*extended-types*
+              (mpk:define-extension-types
+                `(,encoding-type 120 typea typeb)))
+            (mpk:*lookup-table* (mpk:make-lookup-table)))
+        (let* ((a1 (make-instance 'typea 'messagepack-sym:id id1))
+               (a2 (make-instance 'typea 'messagepack-sym:id id2))
+               (b1 (make-instance 'typeb 'messagepack-sym:id id1)))
+          (is (eq (mpk:decode (mpk:encode a1)) a1))
+          (is (eq (mpk:decode (mpk:encode a2)) a2))
+          (is (eq (mpk:decode (mpk:encode b1)) b1))
+          (is (eq (mpk:decode (mpk:encode a1)) (mpk:decode (mpk:encode a1))))
+          (is (eq (mpk:decode (mpk:encode a2)) (mpk:decode (mpk:encode a2))))
+          (is (not (eq (mpk:decode (mpk:encode a1)) (mpk:decode (mpk:encode a2)))))
+          (is (not (eq (mpk:decode (mpk:encode b1)) (mpk:decode (mpk:encode a1)))))
+          (is (not (eq (mpk:decode (mpk:encode b1)) (mpk:decode (mpk:encode a2))))))))))
 
 (test decoding-maps-to-alists
   "Tests that decoding maps to alists works as expected."
