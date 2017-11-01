@@ -20,14 +20,15 @@
 ;; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 ;; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-;;;; cl-messagepack.asd
+;;;; cl-messagepack-tests.asd
 
-(asdf:defsystem #:cl-messagepack
+(asdf:defsystem #:cl-messagepack-tests
   :serial t
-  :depends-on (:flexi-streams :babel :closer-mop)
-  :description "A Common-Lisp implementation of Message Pack serialization."
+  :depends-on (:cl-messagepack :cl-json :fiveam)
+  :description "Tests for cl-messagepack."
   :author "Miron Brezuleanu"
   :license "Simplified BSD License"
-  :components ((:file "package")
-               (:file "cl-messagepack"))
-  :in-order-to ((test-op (test-op cl-messagepack-tests))))
+  :components ((:file "tests")
+               (:file "benchmark"))
+  :perform (test-op (op c)
+    (uiop:symbol-call '#:fiveam '#:run! (uiop:find-symbol* '#:cl-messagepack-tests :mpk-tests))))

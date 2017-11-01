@@ -47,9 +47,3 @@
            *decoder-prefers-lists*
            *decoder-prefers-alists*
            *decode-bin-as-string*))
-
-(defpackage #:messagepack-tests
-  (:use #:cl #:fiveam)
-  (:nicknames #:mpk-tests))
-
-

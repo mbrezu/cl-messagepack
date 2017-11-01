@@ -92,7 +92,7 @@ therefore imposes a 255 byte limit for the byte array.
 Copy the `cl-messagepack` directory to the `local-projects` directory
 of your Quicklisp install, then
 
-    (require :cl-messagepack)
-    (fiveam:run! 'mpk-tests::cl-messagepack-tests)
+    (ql:quickload :cl-messagepack)
+    (asdf:test-system :cl-messagepack)
 
 in a REPL (tested under SBCL and CCL under Linux x64).
