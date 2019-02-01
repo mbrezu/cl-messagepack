@@ -481,7 +481,7 @@
 ;; A pointer to the e-t-d would be longer than the int itself.
 (defclass extension-type ()
   ((id :initform (error "need an ID")
-       :initarg id
+       :initarg :id
        :reader extension-type-id
        :writer (setf extension-type-id)
        :type (or integer (array (unsigned-byte 8) *))))
