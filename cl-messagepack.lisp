@@ -190,28 +190,35 @@
 (defun encode-string (data stream)
   (encode-raw-bytes (babel:string-to-octets data) stream))
 
-#+sbcl (defun sbcl-encode-float (data stream)
+#+sbcl (defun sbcl-encode-float (data stream &optional drop-prefix)
          (cond ((equal (type-of data) 'single-float)
-                (write-byte #xca stream)
+                (unless drop-prefix
+                 (write-byte #xca stream))
                 (store-big-endian (sb-kernel:single-float-bits data) stream 4))
                ((equal (type-of data) 'double-float)
-                (write-byte #xcb stream)
+                (unless drop-prefix
+                  (write-byte #xcb stream))
                 (store-big-endian (sb-kernel:double-float-high-bits data) stream 4)
-                (store-big-endian (sb-kernel:double-float-low-bits data) stream 4))))
+                (store-big-endian (sb-kernel:double-float-low-bits data) stream 4))
+               (T
+                (error "~s is not a float" data))))
 
-#+ccl (defun ccl-encode-double-float (data stream)
+#+ccl (defun ccl-encode-double-float (data stream &optional drop-prefix)
         (cond ((equal (type-of data) 'single-float)
                (error "No cl-messagepack support for single precision floats in CCL."))
               ((equal (type-of data) 'double-float)
-               (write-byte #xcb stream)
+               (unless drop-prefix
+                 (write-byte #xcb stream))
                (multiple-value-bind (hi lo)
                    (ccl::double-float-bits data)
                  (store-big-endian hi stream 4)
-                 (store-big-endian lo stream 4)))))
+                 (store-big-endian lo stream 4)))
+              (T
+               (error "~s is not a float" data))))
 
-(defun encode-float (data stream)
-  (or #+sbcl (sbcl-encode-float data stream)
-      #+ccl (ccl-encode-double-float data stream)
+(defun encode-float (data stream &optional drop-prefix)
+  (or #+sbcl (sbcl-encode-float data stream drop-prefix)
+      #+ccl (ccl-encode-double-float data stream drop-prefix)
       #-(or sbcl ccl) (error "No floating point support yet.")))
 
 (defun encode-each (data stream)
