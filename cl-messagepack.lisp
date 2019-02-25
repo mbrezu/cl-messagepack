@@ -76,6 +76,12 @@
     (when line
       (format t "~{#x~2,'0x ~}~%" (nreverse line)))))
 
+(define-condition encode-no-suitable-encoder (simple-error) ()
+  (:report (lambda (condition stream)
+             (declare (ignore condition))
+             ;; TODO Better error msg
+             (format stream "No suitable encoder was found"))))
+
 (defun encode (data)
   (flexi-streams:with-output-to-sequence (stream)
     (encode-stream data stream)))
@@ -168,9 +174,7 @@
         ((and *extension-dispatchers*
               (dispatcher-for-extension-data data))
          (funcall (encoder-for-extension-data data) data stream))
-        (t (error
-            (format nil
-                    "Cannot encode data ~a (maybe you should bind *extended-types*?)." data)))))
+        (t (error 'encode-no-suitable-encoder))))
 
 (defun encode-rational (data stream)
   (labels ((encode-bignum (data)
@@ -370,7 +374,8 @@
   (getf (dispatcher-for-extension-data data) :decoder))
 
 (defun extension-decode (type len stream)
-  ;; TODO What if decoder doesn't exist?
+  (unless (gethash type *extension-dispatchers*)
+    (error 'decode-no-suitable-decoder))  
   (funcall (getf (gethash type *extension-dispatchers*) :decoder)
            len stream))
 
@@ -396,6 +401,11 @@
                                      (read-byte ,g-stream))))
        result)))
 
+(define-condition decode-no-suitable-decoder (simple-error) ()
+  (:report (lambda (condition stream)
+             (declare (ignore condition))
+             ;; TODO Better error msg
+             (format stream "No suitable decoder was found"))))
 
 (defun decode (byte-array)
   (flexi-streams:with-input-from-sequence (stream byte-array)
@@ -484,9 +494,7 @@
            (funcall (if *decode-bin-as-string* #'decode-string #'decode-byte-array) (load-big-endian stream 2) stream))
           ((= #xc6 byte)
            (funcall (if *decode-bin-as-string* #'decode-string #'decode-byte-array) (load-big-endian stream 4) stream))
-          (t (error
-              (format nil
-                      "Cannot decode ~a (maybe you should bind *extended-types*?)" byte))))))
+          (t (error 'decode-no-suitable-decoder)))))
 
 (defun decode-rational (stream)
   (let ((numerator (decode-stream stream))
