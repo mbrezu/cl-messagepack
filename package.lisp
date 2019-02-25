@@ -46,4 +46,5 @@
            *encode-alist-as-map*
            *decoder-prefers-lists*
            *decoder-prefers-alists*
-           *decode-bin-as-string*))
+           *decode-bin-as-string*
+           register-extension-dispatcher))
