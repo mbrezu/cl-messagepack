@@ -45,8 +45,8 @@
                                                  (json:encode-json test str)))
                     (json:decode-json str))))
 
-    (time (setf encoded-msgpack (encode test)))
-    (time (length (decode encoded-msgpack)))
-    (time (length (decode (encode test))))
+    (time (setf encoded-msgpack (mpk:encode test)))
+    (time (length (mpk:decode encoded-msgpack)))
+    (time (length (mpk:decode (mpk:encode test))))
 
     (values)))
