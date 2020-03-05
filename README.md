@@ -26,7 +26,7 @@ during decoding, `NIL` is returned to Lisp as long `*use-false*` is kept `NIL`.
 ### Earlier implementation of CL-MESSAGEPACK
 
 The previous version used the bytes `#xC4`, `#xC5`, `#xC6`, and `#xC7` to encode
-a 'pure' cons (a cons whose `CDR` is not a cons,
+a 'pure' cons (a cons whose `CDR` is not a cons),
 symbols, symbols as a number (via a lookup table), and rationals.
 
 As these encodings are no longer allowed by the MSGPACK specification this
