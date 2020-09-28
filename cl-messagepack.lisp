@@ -508,10 +508,10 @@
                          :reader ,name
                          :writer (setf ,name)
                          ,@ rest)))
-             '((type-number     nil    :type (integer 0 127))
-               (encode-with     nil    :type function)
-               (decode-with     nil    :type function)
-               (as-numeric      nil    :type (member t nil))
+             '((type-number     (error "missing")    :type (integer 0 127))
+               (encode-with     (error "missing")    :type function)
+               (decode-with     (error "missing")    :type function)
+               (as-numeric      (error "missing")    :type (member t nil))
                (reg-class       nil)
                )))
 
