@@ -459,9 +459,7 @@
 ;; A class would have a :allocation :class ...
 ;; A pointer to the e-t-d would be longer than the int itself.
 (defclass extension-type ()
-  ((id :initform (error "need an ID")
-       :initarg id
-       :reader extension-type-id
+  ((id :reader extension-type-id
        :writer (setf extension-type-id)
        :type (or integer (array (unsigned-byte 8) *))))
   (:documentation
@@ -471,6 +469,28 @@
   (print-unreadable-object (obj stream :type T :identity T)
     (format stream "~a" (extension-type-id obj))))
 
+(defmethod shared-initialize :after ((extension extension-type)
+                                     slot-names
+                                     &key ((messagepack-sym:id id))
+                                     &allow-other-keys)
+  (unless id
+    (error "Need an ID."))
+  ;; Incoming ID arrays might not have the :ELEMENT-TYPE we want/expect;
+  ;; so be nice and convert, if necessary.
+  (setf (extension-type-id extension)
+        (cond
+          ((typep id '(or integer
+                          (array (unsigned-byte 8) *)))
+           id)
+          ((and (typep id '(array T *))
+                (every #'integerp id)
+                (every (lambda (i) (<= 0 i 255)) id))
+           ;; equivalent...
+           (make-array (length id)
+                       :element-type '(unsigned-byte 8)
+                       :initial-contents id))
+          (t
+           "Wrong type for ID"))))
 
 (defclass extension-type-description ()
   #. (mapcar (lambda (d)
@@ -480,10 +500,10 @@
                          :reader ,name
                          :writer (setf ,name)
                          ,@ rest)))
-             '((type-number     nil    :type (integer 0 127))
-               (encode-with     nil    :type function)
-               (decode-with     nil    :type function)
-               (as-numeric      nil    :type (member t nil))
+             '((type-number     (error "missing")    :type (integer 0 127))
+               (encode-with     (error "missing")    :type function)
+               (decode-with     (error "missing")    :type function)
+               (as-numeric      (error "missing")    :type (member t nil))
                (reg-class       nil)
                )))
 
