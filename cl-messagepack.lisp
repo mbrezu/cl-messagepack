@@ -188,7 +188,9 @@
   (encode-string (symbol-name data) stream))
 
 (defun encode-string (data stream)
-  (encode-raw-bytes (babel:string-to-octets data) stream))
+  (setf data (babel:string-to-octets data))
+  (encode-sequence-length data stream #xa0 31 #xd9 #xda #xdb)
+  (write-sequence data stream))
 
 (defun encode-float (data stream)
   (cond ((equal (type-of data) 'single-float)
@@ -222,7 +224,8 @@
         (t (error "Not sequence or hash table."))))
 
 (defun encode-sequence-length (data stream
-                               short-prefix short-length
+                               fixed-prefix fixed-length
+                               typecode-8
                                typecode-16 typecode-32)
   (let ((len (cond ((hash-table-p data) (hash-table-count data))
 		   ((plistp data) (let ((ln (length data)))
@@ -230,12 +233,11 @@
 					(/ ln 2)
 					(error "Malformed plist ~s. Length should be even." data))))
 		   (t (length data)))))
-    (cond ((and (<= 0 len short-length) (plusp short-length))
-           (write-byte (+ short-prefix len) stream))
-          ((and (<= 0 len #xff) (zerop short-length))
-           (write-byte short-prefix stream)
-           (write-byte len stream)
-           (store-big-endian len stream 1))
+    (cond ((and (<= 0 len fixed-length) (plusp fixed-length))
+           (write-byte (+ fixed-prefix len) stream))
+          ((and (<= 0 len #xff) typecode-8)
+           (write-byte typecode-8 stream)
+           (write-byte len stream))
           ((<= 0 len 65535)
            (write-byte typecode-16 stream)
            (store-big-endian len stream 2))
@@ -244,15 +246,15 @@
            (store-big-endian len stream 4)))))
 
 (defun encode-hash (data stream)
-  (encode-sequence-length data stream #x80 15 #xde #xdf)
+  (encode-sequence-length data stream #x80 15 nil #xde #xdf)
   (encode-each data stream))
 
 (defun encode-array (data stream)
-  (encode-sequence-length data stream #x90 15 #xdc #xdd)
+  (encode-sequence-length data stream #x90 15 nil #xdc #xdd)
   (encode-each data stream))
 
 (defun encode-raw-bytes (data stream)
-  (encode-sequence-length data stream #xa0 31 #xda #xdb)
+  (encode-sequence-length data stream #x0 0 #xc4 #xc5 #xc6)
   (write-sequence data stream))
 
 (defun encode-integer (data stream)
@@ -560,6 +562,30 @@
                (parse-big-endian bytes)
                bytes))))
 
+(defun encode-fix-ext (fixext-byte type obj stream)
+  (write-byte fixext-byte stream)
+  (write-byte type stream)
+  (write-sequence obj stream))
+
+(defun encode-ext8 (len type obj stream)
+  (write-byte #xC7 stream)
+  (write-byte len stream)
+  (write-byte type stream)
+  (write-sequence obj stream))
+
+(defun encode-ext16 (len type obj stream)
+  (write-byte #xC8 stream)
+  (store-big-endian len stream 2)
+  (write-byte type stream)
+  (write-sequence obj stream))
+
+(defun encode-ext32 (len type obj stream)
+  (write-byte #xC9 stream)
+  (store-big-endian len stream 4)
+  (write-byte type stream)
+  (write-sequence obj stream))
+
+
 (defun try-encode-ext-type (obj stream)
   (let ((ext-type (find (class-of obj) *extended-types*
                         :test #'eq
@@ -572,14 +598,50 @@
                         (encode-integer id s))
                       id))
              (len (length bytes)))
-        ;; TODO: in theory the ID might be longer than 256 bytes...
+        ;; in theory the ID might be longer than 256 bytes...
         ;; (encode-sequence-length bytes stream #xc7 0 #xc8 #xc9)
         ;; but we need the type inbetween.
-        (assert (<= 0 len #xff))
-        (write-byte #xc7 stream)
-        (write-byte len stream)
-        (write-byte (type-number ext-type) stream)
-        (write-sequence bytes stream))
+        (cond ((= len 1)
+               (encode-fix-ext #xd4
+                               (type-number ext-type)
+                               bytes
+                               stream))
+              ((= len 2)
+               (encode-fix-ext #xd5
+                               (type-number ext-type)
+                               bytes
+                               stream))
+              ((= len 4)
+               (encode-fix-ext #xd6
+                               (type-number ext-type)
+                               bytes
+                               stream))
+              ((= len 8)
+               (encode-fix-ext #xd7
+                               (type-number ext-type)
+                               bytes
+                               stream))
+              ((= len 16)
+               (encode-fix-ext #xd8
+                               (type-number ext-type)
+                               bytes
+                               stream))
+              ((< len 256)
+               (encode-ext8 len
+                            (type-number ext-type)
+                            bytes
+                            stream))
+              ((< len 65536)
+               (encode-ext16 len
+                            (type-number ext-type)
+                            bytes
+                            stream))
+              ((< len 4294967296)
+               (encode-ext32 len
+                            (type-number ext-type)
+                            bytes
+                            stream))
+              (t (error "array length is too large."))))
       T)))
 
 
