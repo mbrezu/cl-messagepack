@@ -188,38 +188,17 @@
   (encode-string (symbol-name data) stream))
 
 (defun encode-string (data stream)
-  (encode-raw-bytes (babel:string-to-octets data) stream))
+  (setf data (babel:string-to-octets data))
+  (encode-sequence-length data stream #xa0 31 #xd9 #xda #xdb)
+  (write-sequence data stream))
 
-#+sbcl (defun sbcl-encode-float (data stream &optional drop-prefix)
-         (cond ((equal (type-of data) 'single-float)
-                (unless drop-prefix
-                 (write-byte #xca stream))
-                (store-big-endian (sb-kernel:single-float-bits data) stream 4))
-               ((equal (type-of data) 'double-float)
-                (unless drop-prefix
-                  (write-byte #xcb stream))
-                (store-big-endian (sb-kernel:double-float-high-bits data) stream 4)
-                (store-big-endian (sb-kernel:double-float-low-bits data) stream 4))
-               (T
-                (error "~s is not a float" data))))
-
-#+ccl (defun ccl-encode-double-float (data stream &optional drop-prefix)
-        (cond ((equal (type-of data) 'single-float)
-               (error "No cl-messagepack support for single precision floats in CCL."))
-              ((equal (type-of data) 'double-float)
-               (unless drop-prefix
-                 (write-byte #xcb stream))
-               (multiple-value-bind (hi lo)
-                   (ccl::double-float-bits data)
-                 (store-big-endian hi stream 4)
-                 (store-big-endian lo stream 4)))
-              (T
-               (error "~s is not a float" data))))
-
-(defun encode-float (data stream &optional drop-prefix)
-  (or #+sbcl (sbcl-encode-float data stream drop-prefix)
-      #+ccl (ccl-encode-double-float data stream drop-prefix)
-      #-(or sbcl ccl) (error "No floating point support yet.")))
+(defun encode-float (data stream)
+  (cond ((equal (type-of data) 'single-float)
+         (write-byte #xca stream)
+         (store-big-endian (ieee-floats:encode-float32 data) stream 4))
+        ((equal (type-of data) 'double-float)
+         (write-byte #xcb stream)
+         (store-big-endian (ieee-floats:encode-float64 data) stream 8))))
 
 (defun encode-each (data stream)
   (cond ((hash-table-p data)
@@ -245,7 +224,8 @@
         (t (error "Not sequence or hash table."))))
 
 (defun encode-sequence-length (data stream
-                               short-prefix short-length
+                               fixed-prefix fixed-length
+                               typecode-8
                                typecode-16 typecode-32)
   (let ((len (cond ((hash-table-p data) (hash-table-count data))
 		   ((plistp data) (let ((ln (length data)))
@@ -253,12 +233,11 @@
 					(/ ln 2)
 					(error "Malformed plist ~s. Length should be even." data))))
 		   (t (length data)))))
-    (cond ((and (<= 0 len short-length) (plusp short-length))
-           (write-byte (+ short-prefix len) stream))
-          ((and (<= 0 len #xff) (zerop short-length))
-           (write-byte short-prefix stream)
-           (write-byte len stream)
-           (store-big-endian len stream 1))
+    (cond ((and (<= 0 len fixed-length) (plusp fixed-length))
+           (write-byte (+ fixed-prefix len) stream))
+          ((and (<= 0 len #xff) typecode-8)
+           (write-byte typecode-8 stream)
+           (write-byte len stream))
           ((<= 0 len 65535)
            (write-byte typecode-16 stream)
            (store-big-endian len stream 2))
@@ -267,15 +246,15 @@
            (store-big-endian len stream 4)))))
 
 (defun encode-hash (data stream)
-  (encode-sequence-length data stream #x80 15 #xde #xdf)
+  (encode-sequence-length data stream #x80 15 nil #xde #xdf)
   (encode-each data stream))
 
 (defun encode-array (data stream)
-  (encode-sequence-length data stream #x90 15 #xdc #xdd)
+  (encode-sequence-length data stream #x90 15 nil #xdc #xdd)
   (encode-each data stream))
 
 (defun encode-raw-bytes (data stream)
-  (encode-sequence-length data stream #xa0 31 #xda #xdb)
+  (encode-sequence-length data stream #x0 0 #xc4 #xc5 #xc6)
   (write-sequence data stream))
 
 (defun encode-integer (data stream)
@@ -380,14 +359,9 @@
           ((= #xc2 byte)
            (if *use-false* :false nil))
           ((= #xca byte)
-           (or #+sbcl (sb-kernel:make-single-float (ub32->sb32 (load-big-endian stream 4)))
-               #-(or sbcl) (error "No floating point support yet.")))
+           (ieee-floats:decode-float32 (load-big-endian stream 4)))
           ((= #xcb byte)
-           (or #+sbcl (sb-kernel:make-double-float (ub32->sb32 (load-big-endian stream 4))
-                                                   (load-big-endian stream 4))
-               #+ccl (ccl::double-float-from-bits (load-big-endian stream 4)
-                                                  (load-big-endian stream 4))
-               #-(or sbcl ccl) (error "No floating point support yet.")))
+           (ieee-floats:decode-float64 (load-big-endian stream 8)))
           ((= 5 (ldb (byte 3 5) byte))
            (decode-string (ldb (byte 5 0) byte) stream))
           ((= #xd9 byte)
@@ -588,6 +562,30 @@
                (parse-big-endian bytes)
                bytes))))
 
+(defun encode-fix-ext (fixext-byte type obj stream)
+  (write-byte fixext-byte stream)
+  (write-byte type stream)
+  (write-sequence obj stream))
+
+(defun encode-ext8 (len type obj stream)
+  (write-byte #xC7 stream)
+  (write-byte len stream)
+  (write-byte type stream)
+  (write-sequence obj stream))
+
+(defun encode-ext16 (len type obj stream)
+  (write-byte #xC8 stream)
+  (store-big-endian len stream 2)
+  (write-byte type stream)
+  (write-sequence obj stream))
+
+(defun encode-ext32 (len type obj stream)
+  (write-byte #xC9 stream)
+  (store-big-endian len stream 4)
+  (write-byte type stream)
+  (write-sequence obj stream))
+
+
 (defun try-encode-ext-type (obj stream)
   (let ((ext-type (find (class-of obj) *extended-types*
                         :test #'eq
@@ -600,14 +598,50 @@
                         (encode-integer id s))
                       id))
              (len (length bytes)))
-        ;; TODO: in theory the ID might be longer than 256 bytes...
+        ;; in theory the ID might be longer than 256 bytes...
         ;; (encode-sequence-length bytes stream #xc7 0 #xc8 #xc9)
         ;; but we need the type inbetween.
-        (assert (<= 0 len #xff))
-        (write-byte #xc7 stream)
-        (write-byte len stream)
-        (write-byte (type-number ext-type) stream)
-        (write-sequence bytes stream))
+        (cond ((= len 1)
+               (encode-fix-ext #xd4
+                               (type-number ext-type)
+                               bytes
+                               stream))
+              ((= len 2)
+               (encode-fix-ext #xd5
+                               (type-number ext-type)
+                               bytes
+                               stream))
+              ((= len 4)
+               (encode-fix-ext #xd6
+                               (type-number ext-type)
+                               bytes
+                               stream))
+              ((= len 8)
+               (encode-fix-ext #xd7
+                               (type-number ext-type)
+                               bytes
+                               stream))
+              ((= len 16)
+               (encode-fix-ext #xd8
+                               (type-number ext-type)
+                               bytes
+                               stream))
+              ((< len 256)
+               (encode-ext8 len
+                            (type-number ext-type)
+                            bytes
+                            stream))
+              ((< len 65536)
+               (encode-ext16 len
+                            (type-number ext-type)
+                            bytes
+                            stream))
+              ((< len 4294967296)
+               (encode-ext32 len
+                            (type-number ext-type)
+                            bytes
+                            stream))
+              (t (error "array length is too large."))))
       T)))
 
 

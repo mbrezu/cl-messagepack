@@ -57,8 +57,8 @@
 (test floating-point
   "Test encoding of single and double precision floating point
 numbers."
-  #+sbcl (is (equalp #(#xCA #x3F #x80 #x00 #x00) (mpk:encode 1.0s0)))
-  #+sbcl (is (equalp #(#xCA #xBF #x80 #x00 #x00) (mpk:encode -1.0s0)))
+  (is (equalp #(#xCA #x3F #x80 #x00 #x00) (mpk:encode 1.0s0)))
+  (is (equalp #(#xCA #xBF #x80 #x00 #x00) (mpk:encode -1.0s0)))
   (is (equalp #(#xCB #x3F #xF0 #x00 #x00 #x00 #x00 #x00 #x00) (mpk:encode 1.0d0)))
   (is (equalp #(#xCB #xBF #xF0 #x00 #x00 #x00 #x00 #x00 #x00) (mpk:encode -1.0d0))))
 
@@ -68,7 +68,7 @@ since I am interested in using msgpack as a binary JSON). Use strings
 of various lengths to make sure string length is encoded properly."
   (is (equalp #(#xAB #x54 #x65 #x73 #x74 #x20 #x73 #x74 #x72 #x69 #x6E #x67)
               (mpk:encode "Test string")))
-  (is (equalp #(#xDA #x00 #x3C #x73 #x74 #x72 #x69 #x6E #x67 #x73 #x74 #x72 #x69 #x6E #x67 #x73
+  (is (equalp #(#xD9 #x3C #x73 #x74 #x72 #x69 #x6E #x67 #x73 #x74 #x72 #x69 #x6E #x67 #x73
                 #x74 #x72 #x69 #x6E #x67 #x73 #x74 #x72 #x69 #x6E #x67 #x73 #x74 #x72 #x69 #x6E
                 #x67 #x73 #x74 #x72 #x69 #x6E #x67 #x73 #x74 #x72 #x69 #x6E #x67 #x73 #x74 #x72
                 #x69 #x6E #x67 #x73 #x74 #x72 #x69 #x6E #x67 #x73 #x74 #x72 #x69 #x6E #x67)
@@ -149,8 +149,14 @@ encode properly."
   (let ((mpk:*extended-types*
           (mpk:define-extension-types
             '(7   type1))))
-    (is (equalp #(#xC7 #x01 #x07 #x09)
-                (mpk:encode (make-instance 'type1 'messagepack-sym:id 9))))))
+    (is (equalp #(#xd4 #x07 #x09)
+                (mpk:encode (make-instance 'type1 'messagepack-sym:id #(9)))))
+    (is (equalp #(#xd5 #x07 #x01 #x02)
+                (mpk:encode (make-instance 'type1 'messagepack-sym:id #(1 2)))))
+    (is (equalp #(#xc7 #x03 #x07 #x01 #x02 #x03)
+                (mpk:encode (make-instance 'type1 'messagepack-sym:id #(1 2 3)))))
+    (is (equalp #(#xd6 #x07 #x01 #x02 #x03 #x04)
+                (mpk:encode (make-instance 'type1 'messagepack-sym:id #(1 2 3 4)))))))
 
 (test decoding-integers
   "Test that (equalp (decode (encode data)) data) for integers (that
@@ -168,12 +174,12 @@ encode properly."
 
 (test decoding-floats
   "Test that (equalp (decode (encode data)) data) for floats."
-  #+ (or sbcl ccl) (is (eql  100d0 (mpk:decode (mpk:encode  100d0))))
-  #+ (or sbcl ccl) (is (eql -100d0 (mpk:decode (mpk:encode -100d0))))
-  #+ (or sbcl ccl) (is (eql -1.2345678901234567e19
+  (is (eql  100d0 (mpk:decode (mpk:encode  100d0))))
+  (is (eql -100d0 (mpk:decode (mpk:encode -100d0))))
+  (is (eql -1.2345678901234567e19
                             (mpk:decode (mpk:encode -1.2345678901234567e19))))
-  #+ sbcl (is (eql  102s0 (mpk:decode (mpk:encode  102s0))))
-  #+ sbcl (is (eql -102s0 (mpk:decode (mpk:encode -102s0)))))
+  (is (eql  102s0 (mpk:decode (mpk:encode  102s0))))
+  (is (eql -102s0 (mpk:decode (mpk:encode -102s0)))))
 
 (test decoding-strings
   "Test that (equalp (decode (encode data)) data) holds for strings."
