@@ -164,11 +164,7 @@ encode properly."
 (test decoding-bools
   "Test that (equalp (decode (encode data)) data) for bools."
   (is (eql t (mpk:decode (mpk:encode t))))
-  (is (eql nil (mpk:decode (mpk:encode :false)))))
-
-(test decoding-nil
-  "Test that (equalp (decode (encode data)) data) for nil"
-  (is (eql 'NULL (mpk:decode (mpk:encode nil)))))
+  (is (eql nil (mpk:decode (mpk:encode nil)))))
 
 (test decoding-floats
   "Test that (equalp (decode (encode data)) data) for floats."
