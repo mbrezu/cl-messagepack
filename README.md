@@ -16,7 +16,7 @@ for some Lisp data types (see below), simple tests.
 
 ### (C0) 'NIL'
 
-This translates to `NIL` in Lisp directly, but see `C2` (`False`) below, too.
+If `*use-null*` is kept `NIL`, `C0` translates to `NIL` in Lisp; else it translates to `'NULL` (symbol).  Also see `C2` (`False`) below, too.
 
 ### (C2) 'False'
 
