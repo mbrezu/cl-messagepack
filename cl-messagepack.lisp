@@ -374,7 +374,7 @@
              (typed-data (read-byte stream)
                          (decode-byte-array len stream))))
           ((= #xc0 byte)
-           'null)
+           nil)
           ((= #xc3 byte)
            t)
           ((= #xc2 byte)
