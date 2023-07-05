@@ -33,6 +33,7 @@
   (:export encode encode-stream
            decode decode-stream
            write-hex
+           *use-null*
            *symbol->int*
            *int->symbol*
            get-symbol-int-table

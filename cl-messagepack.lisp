@@ -102,6 +102,7 @@
             collect `(write-byte (ldb (byte 8 ,(* 8 i)) ,g-number) ,g-stream)))))
 
 (defvar *use-false* nil)
+(defvar *use-null* nil)
 (defvar *symbol->int* nil)
 (defvar *int->symbol* nil)
 (defvar *symbol->int* nil)
@@ -374,7 +375,7 @@
              (typed-data (read-byte stream)
                          (decode-byte-array len stream))))
           ((= #xc0 byte)
-           nil)
+           (if *use-null* 'null nil))
           ((= #xc3 byte)
            t)
           ((= #xc2 byte)
